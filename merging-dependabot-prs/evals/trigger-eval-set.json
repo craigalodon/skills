@@ -1,0 +1,22 @@
+[
+  {"query": "we've got like 15 dependabot PRs stacked up on the main api repo and half are red because of the lockfile. can you go through them and get them merged in a sane order?", "should_trigger": true},
+  {"query": "morning — the dependabot backlog on our github repo is out of control again. review them and land whatever's safe, and where dependabot didn't regenerate uv.lock just add that commit yourself", "should_trigger": true},
+  {"query": "dependabot opened 4 PRs bumping different eslint plugins and they all conflict with each other on package-lock.json. sort it out and merge them", "should_trigger": true},
+  {"query": "can you clear the bot PRs on this repo? there's a bunch from dependabot and a couple that only pass CI together (the two aws-sdk ones)", "should_trigger": true},
+  {"query": "handle the dependabot updates in ~/code/payments-service — check out each branch, run the tests locally, and merge the ones that actually pass", "should_trigger": true},
+  {"query": "there are two dependabot PRs, one for cryptography and one for pyca, and neither builds without the other. figure out the right way to get both landed", "should_trigger": true},
+  {"query": "the dependabot PR for fastapi 0.115 is failing the frozen-lockfile check because poetry.lock wasn't updated. fix that and get it merged", "should_trigger": true},
+  {"query": "clear the dependency update backlog on our monorepo — dependabot has about 20 open right now, grouped by ecosystem", "should_trigger": true},
+  {"query": "get the bot PRs in. don't just merge them one at a time though, last time that set off a merge-conflict cascade across the rest", "should_trigger": true},
+  {"query": "the bot keeps opening dependency bump PRs and they pile up because each one conflicts once another merges. can you just get this week's batch in for me?", "should_trigger": true},
+  {"query": "our package-lock.json has a merge conflict on main after I rebased my feature branch onto it. help me resolve it", "should_trigger": false},
+  {"query": "bump react from 18 to 19 across every package in our turborepo and fix whatever breaks", "should_trigger": false},
+  {"query": "set up dependabot for this repo — I want weekly npm updates grouped into a single PR, and .github/dependabot.yml doesn't exist yet", "should_trigger": false},
+  {"query": "can you review PR #4821? it refactors the auth middleware and I want a second pair of eyes before I merge", "should_trigger": false},
+  {"query": "renovate keeps opening one PR per github-action version bump — can you tweak the renovate config so it batches them into one?", "should_trigger": false},
+  {"query": "npm audit is reporting a high-severity vuln in a transitive dependency. how do I force-resolve it with an overrides entry without waiting for an upstream fix?", "should_trigger": false},
+  {"query": "our CI lockfile check is failing on the main branch itself, not on a PR — someone committed a package.json change without running npm install. can you fix main?", "should_trigger": false},
+  {"query": "a dependabot PR bumped lodash last week and now the app throws 'x is not a function' at startup. can you debug the runtime error and find the fix?", "should_trigger": false},
+  {"query": "the .github/dependabot.yml has a YAML syntax error and dependabot stopped running entirely. can you fix the config?", "should_trigger": false},
+  {"query": "go through all my open PRs on GitHub and leave review comments wherever you spot a bug or a style issue", "should_trigger": false}
+]

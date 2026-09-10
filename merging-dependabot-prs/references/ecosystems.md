@@ -24,8 +24,11 @@ expected and fine here.
 
 ## Python — uv
 
-- Install/test: `uv sync --frozen && uv run pytest` (or the project's test cmd).
-  If `--frozen` fails, the lock is stale.
+- Check the lock is current: `uv lock --check` (aka `uv sync --locked`) — it
+  fails when `uv.lock` is stale relative to `pyproject.toml`. Do **not** rely on
+  `uv sync --frozen` for this: `--frozen` installs straight from the existing
+  lock without comparing it to the manifest, so a stale lock passes silently.
+- Install/test: `uv sync && uv run pytest` (or the project's test cmd).
 - Regenerate lock: `uv lock` (updates only what the manifest now requires).
   Then `uv sync`.
 - Dependabot frequently updates `pyproject.toml` without updating `uv.lock` —

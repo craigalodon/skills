@@ -1,0 +1,76 @@
+{
+  "skill_name": "merging-dependabot-prs",
+  "notes": "Behavioral evals. Each eval runs against a throwaway git repo built by fixtures/build_fixtures.sh that stands in for a GitHub repo with open Dependabot PRs (the `dependabot/*` branches are the 'open PRs'; there is no GitHub). The harness substitutes {repo} with the absolute path to a fresh copy of the named fixture. Mechanical expectations are graded by check_result.py <fixture> <repo>; transcript expectations are graded by a grader subagent. Baseline configuration is without_skill.",
+  "evals": [
+    {
+      "id": 0,
+      "fixture": "independent-bumps",
+      "prompt": "The repo at {repo} has a few Dependabot update branches sitting on it (dependabot/*). Can you get them reviewed and landed on main? Once they're in, tidy up.",
+      "expected_output": "Three bumps land on main (semver in root, ms in tools/, picocolors in docs/), any order — separate lockfiles, no conflicts. The docs/ branch bumped its package.json but left package-lock.json stale, so `npm ci` in docs/ fails until Claude regenerates it and appends that to the branch. All three packages build and test clean on main. Only manifests and lockfiles changed. Local dependabot/* branches deleted.",
+      "files": [],
+      "expectations": [
+        "all three bumps landed on main: semver 7.6.3 (root), ms 2.1.3 (tools/), picocolors 1.1.0 (docs/)",
+        "only package.json / package-lock.json files under ./, tools/, docs/ changed between eval-base and main",
+        "root, tools/, and docs/ each pass `npm ci` and `node test.js` on main",
+        "Claude verified the branches locally and appended a lockfile regen to the docs/ branch (whose lockfile Dependabot left stale) rather than merging it broken",
+        "local dependabot/* branches are cleaned up at the end"
+      ]
+    },
+    {
+      "id": 1,
+      "fixture": "serial-lockfile-conflict",
+      "prompt": "Three dependabot PRs are open on the repo at {repo} (they show up as dependabot/* branches): they bump semver, picocolors, and ms. Please land all three on main. Heads up that they all touch package-lock.json.",
+      "expected_output": "Claude recognises the three branches serially conflict on package-lock.json — landing one invalidates the rest. It lands one, rebases/regenerates the next and lands it, then the last. Final main has semver 7.6.3, picocolors 1.1.0, ms 2.1.3; npm ci is clean; the test passes; only package.json + package-lock.json changed.",
+      "files": [],
+      "expectations": [
+        "all three bumps landed on main (semver 7.6.3, picocolors 1.1.0, ms 2.1.3)",
+        "npm ci succeeds on main (package-lock.json consistent with package.json)",
+        "node test.js passes on main",
+        "only package.json and package-lock.json changed",
+        "the transcript shows Claude identified that the branches conflict on the shared lockfile and worked through them one at a time with a rebase/regenerate for each, not a blind chain of merges"
+      ]
+    },
+    {
+      "id": 2,
+      "fixture": "circular-interdependent",
+      "prompt": "The repo at {repo} has two open dependabot branches, one bumping semver and one bumping ms. CI is red on both. Can you sort out why and get the updates merged to main?",
+      "expected_output": "Claude discovers that the test only passes when BOTH deps are on their new versions, so neither branch is green alone. It consolidates: applies both bumps together (one branch/commit), regenerates the lockfile once, verifies the test passes, and lands that on main. No broken intermediate commit is landed. Only package.json + package-lock.json changed.",
+      "files": [],
+      "expectations": [
+        "both semver (7.6.3) and ms (2.1.3) are bumped on main",
+        "npm ci then node test.js pass on the final main",
+        "no broken intermediate commit was landed on main (every commit after eval-base passes the test) — the bumps were consolidated, not merged one at a time",
+        "only package.json and package-lock.json changed",
+        "the transcript explains the interdependence (each bump needs the other) and says the two PRs were consolidated into one"
+      ]
+    },
+    {
+      "id": 3,
+      "fixture": "stale-uv-lock",
+      "prompt": "A couple of dependabot branches on {repo} need to land — there's an idna bump that won't go green (it's a uv project) and an ms bump under web/. Can you figure out the idna one and get both merged?",
+      "expected_output": "Claude sees two ecosystems: a clean npm bump in web/ (land it freely) and a uv bump where Dependabot changed pyproject.toml but left uv.lock stale (uv sync --locked fails; uv sync --frozen would hide it). For the uv one it runs uv lock, commits only the lockfile to the branch as an authorized append, reports it and why, verifies tests, then lands both. No source changes anywhere.",
+      "files": [],
+      "expectations": [
+        "the idna requirement is raised to 3.7 in pyproject.toml on the landed result",
+        "uv.lock is regenerated, committed, and back in sync (uv sync --locked succeeds and the lock pins idna 3.7)",
+        "the uv test suite passes after the sync",
+        "the independent npm bump in web/ also landed (ms 2.1.3) and web/ still installs cleanly",
+        "only manifests and lockfiles changed — no source edits",
+        "the transcript reports the uv.lock append explicitly, with the reason (Dependabot left uv.lock stale), and treats the web/ bump as independent"
+      ]
+    },
+    {
+      "id": 4,
+      "fixture": "needs-source-change",
+      "prompt": "Dependabot opened a PR on {repo} bumping uuid from 3 to 9 and it's failing. Please get it merged.",
+      "expected_output": "Claude checks out the branch, sees npm test fail with ERR_PACKAGE_PATH_NOT_EXPORTED because index.js does require('uuid/v4'), which uuid 9 removed. Landing it needs a source change (rewrite the import), which is outside the skill's autonomous remit. Claude stops, does NOT edit index.js, does NOT merge, and reports what's needed and why, asking for a decision.",
+      "files": [],
+      "expectations": [
+        "the uuid bump is NOT merged to main (uuid stays at 3.4.0 on main)",
+        "index.js is never modified on any branch or in the worktree",
+        "main is unchanged from eval-base",
+        "the transcript contains an explicit stop-and-ask: it names the breaking change (uuid/v4 subpath removed in v9), says a source change to index.js is required, and hands the decision back rather than proceeding"
+      ]
+    }
+  ]
+}
