@@ -32,6 +32,7 @@ jobs:
           git ls-files -z | xargs -0 uvx --from pre-commit-hooks==6.0.0 check-merge-conflict
           git ls-files -z '*.toml' | xargs -0 --no-run-if-empty uvx --from pre-commit-hooks==6.0.0 check-toml
           git ls-files -z '*.yaml' '*.yml' | xargs -0 --no-run-if-empty uvx --from pre-commit-hooks==6.0.0 check-yaml
+          git ls-files -z '*.json' | xargs -0 --no-run-if-empty uvx --from pre-commit-hooks==6.0.0 check-json
           git ls-files -z | xargs -0 uvx --from pre-commit-hooks==6.0.0 end-of-file-fixer
           git ls-files -z | xargs -0 uvx --from pre-commit-hooks==6.0.0 trailing-whitespace-fixer
           git diff --exit-code

@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags: ["*/v*"]
+  workflow_dispatch:
+    inputs:
+      skill:
+        description: Skill directory name (e.g. merging-dependabot-prs)
+        required: true
+      version:
+        description: Version string, e.g. 1.0.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Package and release a skill
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # Full history: scoped release notes need every commit and tag.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Determine skill and version
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SKILL="${{ inputs.skill }}"
+            VERSION="${{ inputs.version }}"
+          else
+            # Tag is "<skill>/v<version>" (e.g. merging-dependabot-prs/v1.0.0).
+            REF="${GITHUB_REF_NAME}"
+            SKILL="${REF%/v*}"
+            VERSION="${REF##*/v}"
+          fi
+          if [ ! -f "$SKILL/SKILL.md" ]; then
+            echo "::error::no such skill: '$SKILL' (expected $SKILL/SKILL.md)"
+            exit 1
+          fi
+          echo "skill=$SKILL" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate SKILL.md portability and conventions
+        run: uv run scripts/validate_skills.py
+
+      - name: Test the validator and packager
+        run: uv run --with pytest --with 'pyyaml>=6' pytest -q
+
+      - name: Check marketplace.json version matches the tag
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          SKILL: ${{ steps.release.outputs.skill }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          skill = os.environ["SKILL"]
+          version = os.environ["VERSION"]
+          data = json.load(open(".claude-plugin/marketplace.json"))
+          entry = next((p for p in data["plugins"] if p["name"] == skill), None)
+          mp_version = entry.get("version") if entry else None
+          if mp_version != version:
+              print(
+                  f"::error::marketplace.json version ({mp_version!r}) does not "
+                  f"match tag version ({version!r}) for {skill!r} — bump the entry "
+                  "and retag"
+              )
+              sys.exit(1)
+          PY
+
+      - name: Package the skill
+        env:
+          SKILL: ${{ steps.release.outputs.skill }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: uv run scripts/package_skills.py --skill "$SKILL" --version "$VERSION" --out dist
+
+      - name: Build release notes
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          SKILL: ${{ steps.release.outputs.skill }}
+        run: |
+          PREV_TAG=$(git tag --list "${SKILL}/v*" --sort=-v:refname \
+            | grep -v -x "${GITHUB_REF_NAME}" | head -n1 || true)
+          {
+            if [ -n "$PREV_TAG" ]; then
+              echo "Changes to \`${SKILL}/\` since ${PREV_TAG}:"
+              echo
+              git log --pretty='- %s (%h)' "${PREV_TAG}..HEAD" -- "$SKILL"
+            else
+              echo "Changes to \`${SKILL}/\`:"
+              echo
+              git log --pretty='- %s (%h)' -- "$SKILL"
+            fi
+          } > release-notes.md
+
+      - name: Upload dry-run artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.release.outputs.skill }}-${{ steps.release.outputs.version }}
+          path: dist/
+
+      - name: Publish release
+        if: github.event_name != 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.release.outputs.skill }} ${{ steps.release.outputs.version }}
+          body_path: release-notes.md
+          files: dist/*
+          fail_on_unmatched_files: true

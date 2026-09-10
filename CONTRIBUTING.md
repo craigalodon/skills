@@ -84,6 +84,33 @@ no install step). Tests live in `tests/` and cover `validate_skills.py`.
 - [ ] Forward-slash paths throughout
 - [ ] External tools have a stated fallback
 - [ ] Added a row to the README catalog
+- [ ] Added a plugin entry to `.claude-plugin/marketplace.json`
+
+## Releasing
+
+Skills carry no version inside the folder — the portable frontmatter has no
+`version` key. Each skill's version lives in its
+[.claude-plugin/marketplace.json](.claude-plugin/marketplace.json) plugin
+entry, and that is what a release tag must match:
+
+1. Bump the skill's `version` in `marketplace.json`, in the same PR as any
+   skill changes; merge to `main`.
+2. Tag the merged commit `<skill>/v<version>` (e.g.
+   `merging-dependabot-prs/v1.0.0`) and push the tag.
+
+[.github/workflows/release.yml](.github/workflows/release.yml) then validates
+the skill, checks the tag's version against the `marketplace.json` entry
+(refusing to publish on a mismatch), packages
+`<skill>-<version>.tar.gz` + `SHA256SUMS` via
+[scripts/package_skills.py](scripts/package_skills.py), and publishes a GitHub
+Release with notes scoped to that skill's history. A skill can be re-released
+at a new version at any time; the marketplace entry only pins what plugin
+users have installed, it isn't itself the source of truth for what's on
+`main`.
+
+`scripts/package_skills.py` follows the same PEP 723 / no-`pyproject.toml`
+approach as `validate_skills.py` (see "Helper scripts" below); it duplicates
+the small `skill_dirs` helper rather than importing it.
 
 ## Repo-level agent instructions
 

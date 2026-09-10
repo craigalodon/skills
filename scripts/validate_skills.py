@@ -11,6 +11,7 @@ Exits non-zero and prints one line per problem if anything is wrong.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -19,6 +20,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = "template"
+MARKETPLACE_PATH = ".claude-plugin/marketplace.json"
 NAME_RE = re.compile(r"^[a-z0-9-]{1,64}$")
 RESERVED = ("anthropic", "claude")
 PORTABLE_KEYS = {"name", "description", "license", "metadata"}
@@ -35,7 +37,9 @@ def frontmatter(text: str) -> tuple[dict, str] | tuple[None, str]:
     return yaml.safe_load(m.group(1)) or {}, m.group(2)
 
 
-def check_skill(skill_dir: Path, readme: str, problems: list[str]) -> None:
+def check_skill(
+    skill_dir: Path, readme: str, marketplace: dict | None, problems: list[str]
+) -> None:
     rel = skill_dir.name
     md = skill_dir / "SKILL.md"
     fm, body = frontmatter(md.read_text(encoding="utf-8"))
@@ -104,6 +108,24 @@ def check_skill(skill_dir: Path, readme: str, problems: list[str]) -> None:
     if rel not in readme:
         problems.append(f"README.md: skill {rel!r} is missing from the catalog table")
 
+    # Every skill is also a single-skill Claude Code plugin; the release
+    # workflow reads its pinned version from this entry (see CONTRIBUTING.md).
+    if marketplace is not None:
+        plugins = marketplace.get("plugins", [])
+        entry = next((p for p in plugins if p.get("name") == rel), None)
+        if entry is None:
+            problems.append(
+                f"{MARKETPLACE_PATH}: skill {rel!r} has no matching plugin entry"
+            )
+        else:
+            expected_source = f"./{rel}"
+            source = entry.get("source")
+            if source != expected_source:
+                problems.append(
+                    f"{MARKETPLACE_PATH}: {rel!r} entry has source {source!r}, "
+                    f"expected {expected_source!r}"
+                )
+
 
 def skill_dirs(repo: Path) -> list[Path]:
     return sorted(
@@ -122,9 +144,21 @@ def validate_repo(repo: Path) -> list[str]:
     if not dirs:
         return ["no skills found (expected <name>/SKILL.md directories)"]
 
+    marketplace_file = repo / MARKETPLACE_PATH
+    marketplace: dict | None = None
+    if not marketplace_file.exists():
+        problems.append(
+            f"{MARKETPLACE_PATH}: not found (every skill needs a plugin entry)"
+        )
+    else:
+        try:
+            marketplace = json.loads(marketplace_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            problems.append(f"{MARKETPLACE_PATH}: invalid JSON ({e})")
+
     readme = (repo / "README.md").read_text(encoding="utf-8")
     for skill_dir in dirs:
-        check_skill(skill_dir, readme, problems)
+        check_skill(skill_dir, readme, marketplace, problems)
 
     # The template should still parse and carry both required keys.
     tmpl = repo / TEMPLATE_DIR / "SKILL.md"
