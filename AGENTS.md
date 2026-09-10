@@ -21,6 +21,9 @@ Follow [CONTRIBUTING.md](CONTRIBUTING.md). The load-bearing rules:
   deep.
 - Update the catalog table in [README.md](README.md) when adding or renaming a
   skill.
+- Add or update a matching plugin entry in
+  [.claude-plugin/marketplace.json](.claude-plugin/marketplace.json) — every
+  skill is also a single-skill Claude Code plugin, sourced from its own folder.
 
 ## Validate before committing
 
@@ -28,3 +31,14 @@ Follow [CONTRIBUTING.md](CONTRIBUTING.md). The load-bearing rules:
 - `name` equals the directory name.
 - All intra-skill links resolve and are one level deep.
 - No `\` in any path.
+- `uv run scripts/validate_skills.py` checks all of the above, including the
+  `marketplace.json` entry, mechanically.
+
+## Releasing a skill
+
+Skills are versioned and released one at a time via a `<skill>/v<version>` git
+tag, not from an in-repo version field. See "Releasing" in
+[CONTRIBUTING.md](CONTRIBUTING.md) and
+[.github/workflows/release.yml](.github/workflows/release.yml). Never push a
+release tag without the user's explicit go-ahead — like any other push, it's
+outward-facing and hard to reverse cleanly.

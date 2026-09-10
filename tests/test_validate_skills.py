@@ -5,6 +5,7 @@ Run with: uv run --with pytest --with 'pyyaml>=6' pytest
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -25,11 +26,22 @@ def write_skill(repo: Path, name: str, *, fm: str, body: str = "# Title\n") -> P
     return d
 
 
+def write_marketplace(
+    repo: Path, plugins: list[dict], *, raw: str | None = None
+) -> Path:
+    d = repo / ".claude-plugin"
+    d.mkdir(parents=True, exist_ok=True)
+    text = raw if raw is not None else json.dumps({"name": "test", "plugins": plugins})
+    (d / "marketplace.json").write_text(text, encoding="utf-8")
+    return d / "marketplace.json"
+
+
 def test_valid_skill_passes(tmp_path: Path) -> None:
     repo = make_repo(tmp_path, "| [doing-things](doing-things/SKILL.md) | x |")
     write_skill(
         repo, "doing-things", fm=f"name: doing-things\ndescription: {GOOD_DESC}"
     )
+    write_marketplace(repo, [{"name": "doing-things", "source": "./doing-things"}])
     assert vs.validate_repo(repo) == []
 
 
@@ -48,6 +60,7 @@ def test_template_is_exempt_from_name_match_but_needs_keys(tmp_path: Path) -> No
         "template",
         fm="name: verbing-the-noun\ndescription: placeholder text here",
     )
+    write_marketplace(repo, [{"name": "doing-things", "source": "./doing-things"}])
     assert vs.validate_repo(repo) == []
 
     write_skill(repo, "template", fm="name: verbing-the-noun")
@@ -156,6 +169,43 @@ def test_link_checks(tmp_path: Path) -> None:
     assert "broken link: missing.md" in problems
     assert "escapes the skill directory: ../escape.md" in problems
     assert "references/e.md" not in problems  # the valid one is not flagged
+
+
+def test_marketplace_missing_file_reports(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path, "| [doing-things](doing-things/SKILL.md) | x |")
+    write_skill(
+        repo, "doing-things", fm=f"name: doing-things\ndescription: {GOOD_DESC}"
+    )
+    assert any("marketplace.json: not found" in p for p in vs.validate_repo(repo))
+
+
+def test_marketplace_invalid_json_reports(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path, "| [doing-things](doing-things/SKILL.md) | x |")
+    write_skill(
+        repo, "doing-things", fm=f"name: doing-things\ndescription: {GOOD_DESC}"
+    )
+    write_marketplace(repo, [], raw="{not json")
+    assert any("invalid JSON" in p for p in vs.validate_repo(repo))
+
+
+def test_marketplace_missing_entry_reports(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path, "| [doing-things](doing-things/SKILL.md) | x |")
+    write_skill(
+        repo, "doing-things", fm=f"name: doing-things\ndescription: {GOOD_DESC}"
+    )
+    write_marketplace(repo, [{"name": "someone-else", "source": "./someone-else"}])
+    assert any("no matching plugin entry" in p for p in vs.validate_repo(repo))
+
+
+def test_marketplace_wrong_source_reports(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path, "| [doing-things](doing-things/SKILL.md) | x |")
+    write_skill(
+        repo, "doing-things", fm=f"name: doing-things\ndescription: {GOOD_DESC}"
+    )
+    write_marketplace(repo, [{"name": "doing-things", "source": "./wrong-path"}])
+    problems = "\n".join(vs.validate_repo(repo))
+    assert "entry has source './wrong-path'" in problems
+    assert "expected './doing-things'" in problems
 
 
 def test_frontmatter_parses_block_scalar() -> None:
