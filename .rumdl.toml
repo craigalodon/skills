@@ -1,0 +1,12 @@
+# rumdl configuration — https://github.com/rvben/rumdl
+
+[global]
+# MD013 (line length): skill docs mix prose with shell one-liners that must not
+# be wrapped, so a hard column limit costs more than it's worth here.
+disable = ["MD013"]
+exclude = [".git"]
+
+[MD024]
+# Reference files legitimately repeat headings like "## Regenerate lock" under
+# different ecosystems; only flag true duplicate siblings.
+siblings_only = true
