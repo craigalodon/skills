@@ -30,6 +30,14 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
+          # No pyproject.toml/uv.lock in this repo (PEP 723 inline-metadata
+          # scripts instead) -- point at those so the cache actually keys
+          # off real dependency changes instead of never invalidating.
+          cache-dependency-glob: "**/*.py"
+          # Distinct from ci.yml's suffixes so a release run overlapping a
+          # CI run (or a second concurrent release) doesn't race to save
+          # the same cache key.
+          cache-suffix: release
 
       - name: Determine skill and version
         id: release

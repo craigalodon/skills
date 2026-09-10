@@ -24,6 +24,14 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
+          # No pyproject.toml/uv.lock in this repo (PEP 723 inline-metadata
+          # scripts instead) -- point at those so the cache actually keys
+          # off real dependency changes instead of never invalidating.
+          cache-dependency-glob: "**/*.py"
+          # Without this, `checks` and `validate` hash the same glob to the
+          # same key and race to save it, so one job's save always fails
+          # with "another job may be creating this cache".
+          cache-suffix: checks
 
       - name: Check repository files
         shell: bash
@@ -56,6 +64,12 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
+          # No pyproject.toml/uv.lock in this repo (PEP 723 inline-metadata
+          # scripts instead) -- point at those so the cache actually keys
+          # off real dependency changes instead of never invalidating.
+          cache-dependency-glob: "**/*.py"
+          # See the `checks` job for why this needs to differ per job.
+          cache-suffix: validate
 
       - name: Validate SKILL.md portability and conventions
         run: uv run scripts/validate_skills.py

@@ -10,7 +10,7 @@
     {
       "name": "merging-dependabot-prs",
       "description": "Review, verify locally, and merge a repo's open Dependabot PRs as one batch — merge order, interdependent bumps, stale lockfiles, and cleanup.",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "source": "./merging-dependabot-prs",
       "license": "MIT",
       "repository": "https://github.com/craigalodon/skills"
